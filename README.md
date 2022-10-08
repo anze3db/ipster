@@ -28,7 +28,7 @@ Required environmental variables:
 `ipster` will compare your machine's IP address to the IP address in the DNS Record in CloudFlare and update the DNS Record if the two don't match.
 
 ```
-IPSTER_CLOUDFLARE_API_TOKEN=xxxxxxxxx_yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy IPSTER_CLOUDFLARE_ZONE_NAME=example.com IPSTER_CLOUDFLARE_DNS_RECORD_NAME=home.example.com ipster.pi
+IPSTER_CLOUDFLARE_API_TOKEN=xxxxxxxxx_yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy IPSTER_CLOUDFLARE_ZONE_NAME=example.com IPSTER_CLOUDFLARE_DNS_RECORD_NAME=home.example.com ./ipster.pi
 2022/10/08 23:17:11 Verifying IPs
 2022/10/08 23:17:13 No change
 2022/10/08 23:18:11 Verifying IPs

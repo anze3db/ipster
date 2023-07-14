@@ -5,7 +5,7 @@
 ## Install and Run
 
 ```
-wget https://github.com/anze3db/ipster/releases/download/22.1/ipster.pi
+wget https://github.com/anze3db/ipster/releases/download/23.1/ipster.pi
 chmod +x ./ipster.pi
 ./ipster.pi
 ```

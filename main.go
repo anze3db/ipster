@@ -35,11 +35,18 @@ type IP struct {
 
 func main() {
 	verifyEnvVars()
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	api, err := cloudflare.NewWithAPIToken(CLOUDFLARE_API_TOKEN)
+	if err != nil {
+		return
+	}
 	for ; true; <-ticker.C {
 		log.Println("Verifying IPs")
 
-		ipCh, cfCh := fetchIP(), fetchCF()
+		ipCh, cfCh := fetchIP(client), fetchCF(api)
 		ipRes, cfRes := <-ipCh, <-cfCh
 
 		if cfRes.Error != nil {
@@ -55,7 +62,7 @@ func main() {
 		if cfRes.Result.Content != ipRes.Result {
 			log.Println("IPs do not match. Updating...")
 			cfRes.Result.Content = ipRes.Result
-			err := fixIp(cfRes.Result)
+			err := fixIp(cfRes.Result, api)
 			if err != nil {
 				log.Println(err)
 			} else {
@@ -91,14 +98,10 @@ Example call:
 	}
 }
 
-func fetchIP() <-chan Result {
+func fetchIP(client *http.Client) <-chan Result {
 	ch := make(chan Result)
 	go func() {
 		defer close(ch)
-
-		client := http.Client{
-			Timeout: 5 * time.Second,
-		}
 
 		req, err := client.Get(IP_API_URL)
 		if err != nil {
@@ -108,6 +111,7 @@ func fetchIP() <-chan Result {
 
 		if req.StatusCode != 200 {
 			ch <- Result{Result: "", Error: errors.New("connection failed")}
+			return
 		}
 
 		defer req.Body.Close()
@@ -115,26 +119,22 @@ func fetchIP() <-chan Result {
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			ch <- Result{Result: "", Error: err}
+			return
 		}
 
 		var ip IP
 		json.Unmarshal(body, &ip)
+		body = nil
 		ch <- Result{Result: ip.Query, Error: nil}
 	}()
 
 	return ch
 }
 
-func fetchCF() <-chan CFResult {
+func fetchCF(api *cloudflare.API) <-chan CFResult {
 	ch := make(chan CFResult)
 	go func() {
 		defer close(ch)
-
-		api, err := cloudflare.NewWithAPIToken(CLOUDFLARE_API_TOKEN)
-		if err != nil {
-			ch <- CFResult{Result: cloudflare.DNSRecord{}, Error: err}
-			return
-		}
 
 		zoneID, err := api.ZoneIDByName(ZONE_NAME)
 		if err != nil {
@@ -150,6 +150,7 @@ func fetchCF() <-chan CFResult {
 		for _, record := range records {
 			if record.Name == DNS_RECORD_NAME {
 				ch <- CFResult{Result: record, Error: nil}
+				return
 			}
 		}
 
@@ -159,11 +160,7 @@ func fetchCF() <-chan CFResult {
 	return ch
 }
 
-func fixIp(record cloudflare.DNSRecord) error {
-	api, err := cloudflare.NewWithAPIToken(CLOUDFLARE_API_TOKEN)
-	if err != nil {
-		return err
-	}
+func fixIp(record cloudflare.DNSRecord, api *cloudflare.API) error {
 	zoneID, err := api.ZoneIDByName(ZONE_NAME)
 	if err != nil {
 		return err

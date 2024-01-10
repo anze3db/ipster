@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/cloudflare/cloudflare-go"
@@ -18,6 +19,8 @@ const IP_API_URL = "http://ip-api.com/json/"
 var CLOUDFLARE_API_TOKEN = os.Getenv("IPSTER_CLOUDFLARE_API_TOKEN")
 var ZONE_NAME = os.Getenv("IPSTER_CLOUDFLARE_ZONE_NAME")
 var DNS_RECORD_NAME = os.Getenv("IPSTER_CLOUDFLARE_DNS_RECORD_NAME")
+var CHECK_INTERVAL_MS = os.Getenv("IPSTER_CHECK_INTERVAL_MS")
+var CHECK_INTERVAL = 60_000 // 1 minute
 
 type Result struct {
 	Result string
@@ -35,7 +38,7 @@ type IP struct {
 
 func main() {
 	verifyEnvVars()
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(time.Duration(CHECK_INTERVAL) * time.Millisecond)
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
@@ -44,7 +47,6 @@ func main() {
 		return
 	}
 	for ; true; <-ticker.C {
-		log.Println("Verifying IPs")
 
 		ipCh, cfCh := fetchIP(client), fetchCF(api)
 		ipRes, cfRes := <-ipCh, <-cfCh
@@ -70,7 +72,7 @@ func main() {
 			}
 			continue
 		}
-		log.Println("No change")
+		log.Println("No IP change")
 	}
 }
 
@@ -96,6 +98,16 @@ Example call:
 		log.Fatalln(msg)
 		os.Exit(3)
 	}
+	if CHECK_INTERVAL_MS != "" {
+		interval, err := strconv.Atoi(CHECK_INTERVAL_MS)
+		if err != nil {
+			log.Fatalln("Invalid CHECK_INTERVAL_MS", err)
+			os.Exit(4)
+		} else {
+			CHECK_INTERVAL = interval
+		}
+	}
+
 }
 
 func fetchIP(client *http.Client) <-chan Result {
